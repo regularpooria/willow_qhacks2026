@@ -1,35 +1,42 @@
-:root{
-
+:root {
   --bg: #0b1020;
   --surface: rgba(255,255,255,0.06);
   --surface2: rgba(255,255,255,0.10);
   --text: rgba(255,255,255,0.92);
   --muted: rgba(255,255,255,0.72);
   --border: rgba(255,255,255,0.14);
-
   --shadow: 0 18px 50px rgba(0,0,0,0.45);
-
   --accent: #6ea8ff;
   --accentGlow: rgba(110,168,255,0.35);
-
   --radius: 18px;
-
   --base-font: 20px;
-  --tap: 72px;        
-  --ring: 6px;        
+  --tap: 72px;
+  --ring: 6px;
   --maxw: 760px;
 }
 
 * { box-sizing: border-box; }
 
-html, body { height: 100%; margin: 0; }
-
-::-webkit-scrollbar {
-    width: 0px;
-    background: transparent; /*guess what this one does. guess*/
+html, body { 
+  height: 100%; 
+  margin: 0; 
+  overflow: hidden;
 }
 
-body{
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.2);
+  border-radius: 4px;
+}
+
+body {
   background:
     radial-gradient(1000px 700px at 20% 10%, rgba(110,168,255,0.20), transparent 55%),
     radial-gradient(900px 650px at 80% 20%, rgba(52,211,153,0.14), transparent 60%),
@@ -38,15 +45,15 @@ body{
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   line-height: 1.45;
   font-size: var(--base-font);
-  font-weight: lighter;
-
+  font-weight: 400;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  padding: 28px;
+  padding: 20px;
+  transition: padding 0.2s ease;
 }
 
-.skipLink{
+.skipLink {
   position: absolute;
   left: 12px;
   top: 12px;
@@ -59,274 +66,373 @@ body{
   font-weight: 700;
   z-index: 999;
 }
-.skipLink:focus{
+
+.skipLink:focus {
   transform: translateY(0);
   outline: none;
   box-shadow: 0 0 0 var(--ring) var(--accentGlow);
 }
 
-.shell{
+.shell {
   width: min(var(--maxw), 100%);
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 18px;
+  max-height: 100vh;
+  overflow: hidden;
 }
 
-/*our brand? i should've made it gold sorry brah*/
-.top{
+.top {
   text-align: center;
-  padding: 6px 10px;
+  padding: 0;
+  flex-shrink: 0;
 }
 
-.brand{
+.brand {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 14px;
+  gap: 12px;
   align-items: center;
   justify-content: center;
-  max-width: 520px;
+  width: 100%;
   margin: 0 auto;
 }
 
-/*this is optional we can replace it with somethin CoOL xD*/
-.logo{
-  width: 60px;
-  height: 60px;
+.logo {
+  width: 56px;
+  height: 56px;
   border-radius: 14px;
   display: grid;
   place-items: center;
   background: linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.06));
   border: 1px solid var(--border);
   box-shadow: 0 10px 26px rgba(0,0,0,0.30);
-  font-weight: bold;
-  font-size: 30px;
-  letter-spacing: 0.5px;
+  font-size: 28px;
+  transition: width 0.2s ease, height 0.2s ease, font-size 0.2s ease;
 }
 
-.brandText{ text-align: left; }
+.brandText { 
+  text-align: left;
+}
 
-.title{
-  margin: 0 0 6px 0;
-  font-size: clamp(40px, 4vw, 44px);
+.title {
+  margin: 0 0 4px 0;
+  font-size: 32px;
   letter-spacing: 0.2px;
-  font-weight: bold;
+  font-weight: 700;
+  transition: font-size 0.2s ease, margin 0.2s ease;
 }
 
-.subtitle{
+.subtitle {
   margin: 0;
   color: var(--muted);
-  font-size: 18px;
+  font-size: 16px;
+  transition: opacity 0.2s ease;
 }
 
-.card{
+.card {
   background: linear-gradient(180deg, var(--surface2), var(--surface));
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  padding: 22px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
-.sectionTitle{
+.sectionTitle {
   margin: 0;
-  font-size: 18px;
+  font-size: 16px;
   color: var(--muted);
   font-weight: 700;
   letter-spacing: 0.2px;
+  flex-shrink: 0;
 }
 
-.controls{ display: grid; gap: 10px; }
+.controls { 
+  display: grid; 
+  gap: 10px;
+  flex-shrink: 0;
+}
 
-.mic{
+.mic {
   width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 14px;
-
+  gap: 12px;
   min-height: var(--tap);
-  padding: 18px 20px;
-  border-radius: 18px;
+  padding: 16px 20px;
+  border-radius: 16px;
   border: 2px solid transparent;
-
   background: rgba(255,255,255,0.92);
   color: #101217;
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 800;
-
   cursor: pointer;
-
-  transition:
-    transform 120ms ease,
-    box-shadow 120ms ease,
-    border-color 120ms ease,
-    filter 120ms ease,
-    opacity 120ms ease;
+  transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease, 
+              filter 120ms ease, min-height 0.2s ease, padding 0.2s ease, font-size 0.2s ease;
 }
 
-.micIcon{ font-size: 30px; }
+.micIcon { 
+  font-size: 28px;
+  transition: font-size 0.2s ease;
+}
 
-.mic:hover{
+.mic:hover {
   filter: brightness(1.02);
   box-shadow: 0 12px 26px rgba(0,0,0,0.28);
 }
 
-.mic:active{ transform: scale(0.99); }
+.mic:active { 
+  transform: scale(0.99); 
+}
 
-.mic:focus-visible{
+.mic:focus-visible {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 var(--ring) var(--accentGlow);
 }
 
-/* Disabled state: clearly communicates “working” */
-.mic:disabled{
+.mic:disabled {
   cursor: not-allowed;
   opacity: 0.78;
-  filter: none;
-  box-shadow: none;
 }
 
-/* “Listening” state: driven by body[data-listening] from JS */
-body[data-listening="true"] .mic{
+.mic.live {
+  background: linear-gradient(180deg, #6ea8ff, #4c82e8);
+  color: white;
   border-color: var(--accent);
   box-shadow: 0 0 0 var(--ring) var(--accentGlow), 0 14px 30px rgba(0,0,0,0.35);
 }
 
-/* Help + status */
-.help{
+.help {
   margin: 0;
   color: var(--muted);
-  font-size: 16px;
+  font-size: 14px;
+  flex-shrink: 0;
+  transition: opacity 0.2s ease, height 0.2s ease;
 }
 
-kbd{
+kbd {
   font: inherit;
   padding: 2px 8px;
-  border-radius: 8px;
+  border-radius: 6px;
   border: 1px solid var(--border);
   background: rgba(0,0,0,0.18);
   color: var(--text);
+  font-size: 0.9em;
 }
 
-/* Status is a live region: keep it readable */
-.status{
+.status {
   color: var(--muted);
-  font-size: 18px;
+  font-size: 16px;
   padding: 10px 12px;
   border-radius: 12px;
   border: 1px solid transparent;
+  flex-shrink: 0;
 }
 
-/* Optional: more contrast when listening */
-body[data-listening="true"] .status{
+body[data-listening="true"] .status {
   border-color: rgba(110,168,255,0.35);
   background: rgba(110,168,255,0.10);
   color: rgba(255,255,255,0.92);
 }
 
-/* Transcript box */
-.output{
+.output {
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 14px 16px;
+  padding: 12px 14px;
   background: rgba(0,0,0,0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
-.outputLabel{
+.outputLabel {
   color: var(--muted);
-  font-size: 16px;
-  margin-bottom: 8px;
+  font-size: 14px;
   font-weight: 700;
+  flex-shrink: 0;
+  transition: opacity 0.2s ease, height 0.2s ease;
 }
 
-.outText{
+.outText {
   margin: 0;
-  font-size: 22px;
+  font-size: 18px;
   word-wrap: break-word;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 60px;
+  transition: font-size 0.2s ease, min-height 0.2s ease;
 }
 
-/* Make transcript focusable w/ a nice ring */
-.outText:focus-visible{
-  outline: none;
-  box-shadow: 0 0 0 var(--ring) var(--accentGlow);
-  border-radius: 10px;
+.outText:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 8px;
 }
 
-/* Secondary actions */
-.actions{
+.actions {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
 }
 
-.secondary{
-  min-height: 52px;
-  padding: 12px 16px;
-  border-radius: 14px;
+.secondary {
+  min-height: 48px;
+  padding: 10px 16px;
+  border-radius: 12px;
   border: 1px solid var(--border);
   background: rgba(255,255,255,0.08);
   color: var(--text);
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 600;
   cursor: pointer;
-  transition: filter 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+  transition: filter 120ms ease, box-shadow 120ms ease, border-color 120ms ease, 
+              min-height 0.2s ease, padding 0.2s ease, font-size 0.2s ease;
 }
 
-.secondary:hover{
-  filter: brightness(1.05);
-  box-shadow: 0 10px 22px rgba(0,0,0,0.22);
+.secondary:hover {
+  filter: brightness(1.08);
+  box-shadow: 0 8px 18px rgba(0,0,0,0.22);
 }
 
-.secondary:focus-visible{
+.secondary:focus-visible {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 var(--ring) var(--accentGlow);
+  box-shadow: 0 0 0 4px var(--accentGlow);
 }
 
-/* Compact mode: if you ever want a “small/accessible” view */
-body.compact{
-  padding: 16px;
-  --base-font: 18px;
-  --tap: 64px;
-  --maxw: 540px;
+.secondary:active {
+  transform: scale(0.98);
 }
 
-body.compact .subtitle{ font-size: 16px; }
-body.compact .mic{ font-size: 20px; }
-body.compact .outText{ font-size: 20px; }
-
-/* Respect reduced motion */
-@media (prefers-reduced-motion: reduce){
-  * { transition: none !important; animation: none !important; }
+/* ========== COMPACT MODE ========== */
+body.isCompact {
+  padding: 12px;
+  font-size: 16px;
+  align-items: stretch;
 }
 
-/* Small screens: keep it comfy */
-@media (max-width: 480px){
-  body{ padding: 18px; }
-  .brand{ grid-template-columns: 1fr; text-align: center; }
-  .brandText{ text-align: center; }
-  .logo{ margin: 0 auto; }
+body.isCompact .shell {
+  gap: 10px;
+  max-height: 100vh;
 }
 
-
-/* Muted (default) */
-.mic {
-  background: rgba(255,255,255,0.92);
-  color: #101217;
+body.isCompact .top {
+  padding: 0;
 }
 
-/* Live mic */
-.mic.live {
-  background: linear-gradient(180deg, #6ea8ff, #4c82e8);
-  color: white;
+body.isCompact .brand {
+  gap: 10px;
 }
 
-/* Extra clarity for live state */
-body[data-listening="true"] .mic {
-  box-shadow:
-    0 0 0 var(--ring) var(--accentGlow),
-    0 14px 30px rgba(0,0,0,0.35);
+body.isCompact .logo {
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
+}
+
+body.isCompact .title {
+  font-size: 18px;
+  margin: 0;
+  line-height: 1.2;
+}
+
+body.isCompact .subtitle {
+  opacity: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+body.isCompact .card {
+  padding: 14px;
+  gap: 10px;
+}
+
+body.isCompact .sectionTitle {
+  font-size: 13px;
+}
+
+body.isCompact .mic {
+  min-height: 56px;
+  padding: 12px 14px;
+  font-size: 16px;
+  gap: 8px;
+}
+
+body.isCompact .micIcon {
+  font-size: 22px;
+}
+
+body.isCompact .help {
+  opacity: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+body.isCompact .status {
+  font-size: 13px;
+  padding: 8px 10px;
+}
+
+body.isCompact .output {
+  padding: 10px;
+  flex: 1;
+  min-height: 80px;
+}
+
+body.isCompact .outputLabel {
+  opacity: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+body.isCompact .outText {
+  font-size: 14px;
+  min-height: 50px;
+}
+
+body.isCompact .actions {
+  gap: 8px;
+}
+
+body.isCompact .secondary {
+  min-height: 40px;
+  padding: 8px 12px;
+  font-size: 13px;
+  flex: 1;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  * { 
+    animation: none !important; 
+  }
+  /* Keep layout transitions for usability, but make them instant */
+  body, .title, .subtitle, .logo, .mic, .micIcon, 
+  .help, .outputLabel, .outText, .secondary {
+    transition-duration: 0.05s !important;
+  }
+}
+
+/* Small screens */
+@media (max-width: 480px) {
+  body { padding: 12px; }
+  .brand { 
+    grid-template-columns: 1fr; 
+    text-align: center; 
+  }
+  .brandText { text-align: center; }
+  .logo { margin: 0 auto; }
 }

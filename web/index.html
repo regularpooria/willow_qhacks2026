@@ -5,8 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="color-scheme" content="light dark" />
   <title>Willow</title>
-
-  <script src="/eel.js"></script>
   <link rel="stylesheet" href="styles.css" />
 </head>
 
@@ -18,8 +16,8 @@
       <div class="brand">
         <div class="logo" aria-hidden="true">🌅</div>
         <div class="brandText">
-          <h1 class="title">Willow: your voice assistant</h1>
-          <p class="subtitle">Welcome to your Willow dashboard.</p>
+          <h1 class="title">Willow</h1>
+          <p class="subtitle">Your voice assistant</p>
         </div>
       </div>
     </header>
@@ -40,7 +38,7 @@
         </button>
 
         <p id="help" class="help">
-          Tip: You can also press <kbd>Enter</kbd> or <kbd>Space</kbd> to toggle the mute button. 
+          Tip: Press <kbd>Enter</kbd> or <kbd>Space</kbd> to toggle mute
         </p>
       </div>
 
@@ -60,8 +58,9 @@
       </div>
 
       <div class="actions">
-        <button id="clearBtn" class="secondary" type="button">
-          cancel
+        <button id="clearBtn" class="secondary" type="button">Clear</button>
+        <button id="modeBtn" class="secondary" type="button">
+          <span id="modeBtnText">Expand</span>
         </button>
       </div>
     </section>
@@ -73,20 +72,67 @@
   const statusEl = document.getElementById("status");
   const outEl = document.getElementById("out");
   const clearBtn = document.getElementById("clearBtn");
+  const modeBtn = document.getElementById("modeBtn");
+  const modeBtnText = document.getElementById("modeBtnText");
 
-  let muted = true; 
+  let muted = true;
+  let mode = "compact";
+
+  function api() {
+    const a = window.pywebview?.api;
+    if (!a) {
+      // Fallback for testing in browser
+      return {
+        set_mute: async () => ({ ok: true }),
+        set_window_mode: async (m) => {
+          mode = m;
+          updateLayoutMode();
+          return { ok: true };
+        }
+      };
+    }
+    return a;
+  }
+
+  async function applyMode(newMode) {
+    const result = await api().set_window_mode(newMode);
+    if (result.ok) {
+      mode = newMode;
+      updateLayoutMode();
+    }
+  }
+
+  modeBtn.addEventListener("click", async () => {
+    const newMode = (mode === "compact") ? "full" : "compact";
+    await applyMode(newMode);
+  });
+
+  function updateLayoutMode() {
+    // Detect if we're in compact mode based on window size or mode variable
+    const compactNow = mode === "compact" || window.innerWidth < 520;
+    document.body.classList.toggle("isCompact", compactNow);
+    
+    // Update button text
+    modeBtnText.textContent = compactNow ? "Expand" : "Compact";
+  }
+
+  // Listen for window resize events
+  window.addEventListener("resize", updateLayoutMode);
+  
+  // Initial layout check
+  updateLayoutMode();
 
   function renderMuteState() {
     micBtn.setAttribute("aria-pressed", String(!muted));
     document.body.toggleAttribute("data-listening", !muted);
 
     if (muted) {
-      micText.textContent = "Microphone muted";
+      micText.textContent = "Muted";
       statusEl.textContent = "Microphone is off.";
       micBtn.classList.remove("live");
     } else {
-      micText.textContent = "Microphone on";
-      statusEl.textContent = "Microphone is on. Listening...";
+      micText.textContent = "Listening";
+      statusEl.textContent = "Listening...";
       micBtn.classList.add("live");
     }
   }
@@ -94,9 +140,8 @@
   async function toggleMute() {
     muted = !muted;
     renderMuteState();
-
     try {
-      await eel.set_mute(!muted)();
+      await api().set_mute(muted);
     } catch (err) {
       console.error(err);
     }
@@ -105,7 +150,9 @@
   micBtn.addEventListener("click", toggleMute);
 
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" || e.key === " ") {
+    // Only toggle if the target isn't an input/textarea
+    if ((e.key === "Enter" || e.key === " ") && 
+        !["INPUT", "TEXTAREA"].includes(e.target.tagName)) {
       e.preventDefault();
       toggleMute();
     }
@@ -115,13 +162,12 @@
     outEl.textContent = "No speech detected yet.";
     statusEl.textContent = muted
       ? "Transcript cleared. Microphone is off."
-      : "Transcript cleared. Microphone is on.";
+      : "Transcript cleared. Listening...";
     outEl.focus();
   });
 
+  // Initialize
   renderMuteState();
-</script>
-
-
+  </script>
 </body>
 </html>

