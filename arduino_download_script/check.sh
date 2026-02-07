@@ -2,7 +2,7 @@
 
 DESKTOP="$HOME/Desktop"
 WILLOW_PATH="$DESKTOP/willow"
-DOWNLOAD_URL="YOUR_DOWNLOAD_LINK_HERE"
+DOWNLOAD_URL="https://github.com/regularpooria/willow_qhacks2026/releases/download/linux/Willow"
 
 if [ -f "$WILLOW_PATH" ]; then
     echo "Found willow on Desktop, running it..."
