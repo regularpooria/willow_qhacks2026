@@ -5,3 +5,4 @@ output
 records/*
 .env
 __pycache__
+output.mp3
