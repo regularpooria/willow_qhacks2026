@@ -3,6 +3,16 @@ import time
 import threading
 from pathlib import Path
 import webview  # pywebview
+import pyaudio
+import math
+import struct
+import wave
+import os
+from audio_to_transcript import aud_to_trans
+from public.tools.LLM_behaviour import LLM_call
+from transcript_to_audio import trans_to_aud
+from playsound3 import playsound
+import random
 
 # ==========================================
 # Configuration
@@ -16,6 +26,25 @@ FULL_SIZE = (900, 650)
 # How often to re-assert topmost (some Windows setups can drop it)
 TOPMOST_PULSE_SECONDS = 1.0
 
+# Audio recording settings
+Threshold = 15
+SHORT_NORMALIZE = 1.0 / 32768.0
+chunk = 1024
+FORMAT = pyaudio.paInt16
+CHANNELS = 1
+RATE = 16000
+swidth = 2
+TIMEOUT_LENGTH = 2
+f_name_directory = "records"
+
+waiting_audios_paths = [
+    "public/audios/ill_take_care_of_it.mp3",
+    "public/audios/let_me_see_what_i_can_do.mp3",
+    "public/audios/on_it_chief.mp3",
+    "public/audios/processing_your_request.mp3",
+    "public/audios/working_on_it.mp3",
+]
+
 
 class AppState:
     def __init__(self):
@@ -23,9 +52,102 @@ class AppState:
         self.current_mode = "compact"
         self.transcript = ""
         self.window: webview.Window | None = None
+        self.recorder = None
 
 
 state = AppState()
+
+
+# ==========================================
+# Audio Recorder
+# ==========================================
+class Recorder:
+    @staticmethod
+    def rms(frame):
+        count = len(frame) / swidth
+        format = "%dh" % (count)
+        shorts = struct.unpack(format, frame)
+
+        sum_squares = 0.0
+        for sample in shorts:
+            n = sample * SHORT_NORMALIZE
+            sum_squares += n * n
+        rms = math.pow(sum_squares / count, 0.5)
+
+        return rms * 1000
+
+    def __init__(self):
+        self.p = pyaudio.PyAudio()
+        self.stream = self.p.open(
+            format=FORMAT,
+            channels=CHANNELS,
+            rate=RATE,
+            input=True,
+            output=True,
+            frames_per_buffer=chunk,
+        )
+        self.running = False
+
+    def record(self):
+        print("Noise detected, recording beginning")
+        rec = []
+        current = time.time()
+        end = time.time() + TIMEOUT_LENGTH
+
+        while current <= end and self.running:
+            if state.muted:
+                print("Muted during recording, stopping")
+                break
+
+            data = self.stream.read(chunk)
+            if self.rms(data) >= Threshold:
+                end = time.time() + TIMEOUT_LENGTH
+
+            current = time.time()
+            rec.append(data)
+
+        if not state.muted and rec:
+            self.write(b"".join(rec))
+
+    def write(self, recording):
+        n_files = 0
+        filename = os.path.join(f_name_directory, "{}.wav".format(n_files))
+
+        wf = wave.open(filename, "wb")
+        wf.setnchannels(CHANNELS)
+        wf.setsampwidth(self.p.get_sample_size(FORMAT))
+        wf.setframerate(RATE)
+        wf.writeframes(recording)
+        wf.close()
+        print("Written to file: {}".format(filename))
+        print("Returning to listening")
+
+    def listen(self):
+        print("Listening beginning")
+        self.running = True
+        while self.running:
+            if state.muted:
+                time.sleep(0.1)
+                continue
+
+            input_data = self.stream.read(chunk)
+            rms_val = self.rms(input_data)
+            if rms_val > Threshold:
+                self.record()
+                transcript_text = aud_to_trans()
+                if transcript_text:
+                    state.transcript = transcript_text
+                    playsound(random.choice(waiting_audios_paths), block=False)
+                    response = LLM_call(state.transcript)
+                    trans_to_aud(response)
+
+    def stop(self):
+        self.running = False
+        if self.stream:
+            self.stream.stop_stream()
+            self.stream.close()
+        if self.p:
+            self.p.terminate()
 
 
 # ==========================================
@@ -115,6 +237,9 @@ class Api:
     def get_current_mode(self):
         return {"mode": state.current_mode}
 
+    def get_transcript(self):
+        return {"transcript": state.transcript}
+
 
 # ==========================================
 # App bootstrap
@@ -138,7 +263,17 @@ def ensure_web_folder() -> Path:
     return web_dir
 
 
-def on_loaded():
+def start_audio_recording():
+    """Start audio recording in a background thread"""
+
+    def run_recorder():
+        state.recorder = Recorder()
+        state.recorder.listen()
+
+    threading.Thread(target=run_recorder, daemon=True).start()
+
+
+def on_loaded(window):
     # Called once after the GUI loop starts.
     if state.window is None:
         return
@@ -151,6 +286,9 @@ def on_loaded():
 
     # Apply initial size/position
     apply_mode(state.current_mode)
+
+    # Start audio recording
+    start_audio_recording()
 
     # Re-assert topmost on Windows (belt & suspenders)
     if sys.platform == "win32":

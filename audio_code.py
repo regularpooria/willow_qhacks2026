@@ -6,7 +6,7 @@ import time
 import os
 from audio_to_transcript import aud_to_trans
 
-Threshold = 10
+Threshold = 15
 
 SHORT_NORMALIZE = 1.0 / 32768.0
 chunk = 1024
@@ -15,7 +15,7 @@ CHANNELS = 1
 RATE = 16000
 swidth = 2
 
-TIMEOUT_LENGTH = 5
+TIMEOUT_LENGTH = 2
 
 f_name_directory = "records"
 
@@ -64,8 +64,8 @@ class Recorder:
         self.write(b"".join(rec))
 
     def write(self, recording):
-        n_files = len(os.listdir(f_name_directory))
-
+        # n_files = len(os.listdir(f_name_directory))
+        n_files = 0
         filename = os.path.join(f_name_directory, "{}.wav".format(n_files))
 
         wf = wave.open(filename, "wb")
@@ -85,7 +85,6 @@ class Recorder:
             rms_val = self.rms(input)
             if rms_val > Threshold:
                 self.record()
-                run = False
                 aud_to_trans()
 
 

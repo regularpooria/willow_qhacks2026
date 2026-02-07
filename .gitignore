@@ -2,3 +2,5 @@ dist
 build
 venv
 output
+records/*
+.env

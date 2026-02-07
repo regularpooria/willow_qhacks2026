@@ -9,5 +9,4 @@ export PLAYWRIGHT_BROWSERS_PATH=0
 playwright install chromium
 rm -rf dist
 rm -rf build
-pyinstaller --noconfirm --onefile --windowed --name "Willow" --icon "favicon.ico" --add-data "web:web"  "web.py"
-
+pyinstaller --noconfirm --onefile --windowed --icon "favicon.ico" --name "Willow" --add-data "records:records/" --add-data "public:public/" --add-data "web:web/"  "web.py"
