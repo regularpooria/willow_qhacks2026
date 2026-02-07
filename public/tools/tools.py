@@ -36,6 +36,7 @@ from public.tools.YoutubeController import PlaywrightController
 
 from public.tools.tools_youtube import youtube_tools
 from public.tools.tools_weather import weather_tools
+from public.tools.tools_googlemaps import maps_tools
 
 try:
     from playwright.sync_api import sync_playwright, Page, Browser
@@ -491,7 +492,7 @@ _CORE_TOOLS = {
 
 # Register modular tools (YouTube, Spotify, etc.)
 _MODULAR_TOOLS = {}
-for tool_def in youtube_tools + weather_tools:
+for tool_def in youtube_tools + weather_tools + maps_tools:
     _MODULAR_TOOLS[tool_def.name] = tool_def.func
 
 _TOOLS: Dict[str, Callable[[PlaywrightController, Dict[str, Any]], Dict[str, Any]]] = {
@@ -690,7 +691,7 @@ def get_tool_specs() -> list[Dict[str, Any]]:
         )
 
     # Modular tools (YouTube, Weather, etc.)
-    for tool_def in youtube_tools + weather_tools:
+    for tool_def in youtube_tools + weather_tools + maps_tools:
         tools.append(
             _to_openai_tool(
                 name=tool_def.name,

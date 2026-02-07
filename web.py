@@ -26,6 +26,7 @@ FULL_SIZE = (900, 650)
 # How often to re-assert topmost (some Windows setups can drop it)
 TOPMOST_PULSE_SECONDS = 1.0
 
+
 # Get base path for resources (works both in dev and bundled exe)
 def resource_path(relative_path):
     """Get absolute path to resource, works for dev and for PyInstaller"""
@@ -35,6 +36,7 @@ def resource_path(relative_path):
     except Exception:
         base_path = os.path.abspath(".")
     return os.path.join(base_path, relative_path)
+
 
 # Audio recording settings
 Threshold = 15
@@ -148,7 +150,14 @@ class Recorder:
                 if transcript_text:
                     state.transcript = transcript_text
                     playsound(random.choice(waiting_audios_paths), block=False)
-                    response = LLM_call(state.transcript)
+
+                    for i in range(3):
+                        response = LLM_call(state.transcript)
+                        if response != None:
+                            break
+                        else:
+                            state.transcript = "respond " + state.transcript
+
                     trans_to_aud(response)
 
     def stop(self):
