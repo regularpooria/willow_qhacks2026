@@ -1,18 +1,28 @@
 # example.py
 import os
+import sys
 from dotenv import load_dotenv
 from io import BytesIO
 import requests
 from elevenlabs.client import ElevenLabs
 import wave
 
+load_dotenv()
+
+
+def resource_path(relative_path):
+    """Get absolute path to resource, works for dev and for PyInstaller"""
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
+
 
 def aud_to_trans():
-    elevenlabs = ElevenLabs(
-        api_key="sk_47f593889414d07d36c0fe14ad44b9d3c7ceae65b30aaaf0"
-    )
+    elevenlabs = ElevenLabs(api_key=os.getenv("ELEVENLABS_API_KEY"))
 
-    with open("records/0.wav", "rb") as fd:
+    with open(resource_path("records/0.wav"), "rb") as fd:
         audio_data = BytesIO(fd.read())
 
     transcription = elevenlabs.speech_to_text.convert(

@@ -26,6 +26,16 @@ FULL_SIZE = (900, 650)
 # How often to re-assert topmost (some Windows setups can drop it)
 TOPMOST_PULSE_SECONDS = 1.0
 
+# Get base path for resources (works both in dev and bundled exe)
+def resource_path(relative_path):
+    """Get absolute path to resource, works for dev and for PyInstaller"""
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
+
 # Audio recording settings
 Threshold = 15
 SHORT_NORMALIZE = 1.0 / 32768.0
@@ -35,14 +45,14 @@ CHANNELS = 1
 RATE = 16000
 swidth = 2
 TIMEOUT_LENGTH = 2
-f_name_directory = "records"
+f_name_directory = resource_path("records")
 
 waiting_audios_paths = [
-    "public/audios/ill_take_care_of_it.mp3",
-    "public/audios/let_me_see_what_i_can_do.mp3",
-    "public/audios/on_it_chief.mp3",
-    "public/audios/processing_your_request.mp3",
-    "public/audios/working_on_it.mp3",
+    resource_path("public/audios/ill_take_care_of_it.mp3"),
+    resource_path("public/audios/let_me_see_what_i_can_do.mp3"),
+    resource_path("public/audios/on_it_chief.mp3"),
+    resource_path("public/audios/processing_your_request.mp3"),
+    resource_path("public/audios/working_on_it.mp3"),
 ]
 
 

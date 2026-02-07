@@ -4,7 +4,18 @@ import struct
 import wave
 import time
 import os
+import sys
 from audio_to_transcript import aud_to_trans
+
+# Get base path for resources (works both in dev and bundled exe)
+def resource_path(relative_path):
+    """Get absolute path to resource, works for dev and for PyInstaller"""
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
 
 Threshold = 15
 
@@ -17,7 +28,7 @@ swidth = 2
 
 TIMEOUT_LENGTH = 2
 
-f_name_directory = "records"
+f_name_directory = resource_path("records")
 
 
 class Recorder:

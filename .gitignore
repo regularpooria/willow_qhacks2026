@@ -4,3 +4,4 @@ venv
 output
 records/*
 .env
+__pycache__

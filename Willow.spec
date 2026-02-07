@@ -5,7 +5,7 @@ a = Analysis(
     ['web.py'],
     pathex=[],
     binaries=[],
-    datas=[('records', 'records/'), ('public', 'public/'), ('web', 'web/'), ('.env', '.')],
+    datas=[('records', 'records/'), ('public', 'public/'), ('web', 'web/')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
