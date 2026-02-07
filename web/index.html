@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Willow</title>
+
+  <script src="/eel.js"></script>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+  <a class="skipLink" href="#main">Skip to main content</a>
+
+  <main id="main" class="shell" role="main">
+    <header class="top" role="banner">
+      <div class="brand">
+        <div class="logo" aria-hidden="true">🌅</div>
+        <div class="brandText">
+          <h1 class="title">Willow: your voice assistant</h1>
+          <p class="subtitle">Welcome to your Willow dashboard.</p>
+        </div>
+      </div>
+    </header>
+
+    <section class="card" aria-labelledby="voiceTitle">
+      <h2 id="voiceTitle" class="sectionTitle">Microphone status:</h2>
+
+      <div class="controls">
+        <button
+          id="micBtn"
+          class="mic"
+          type="button"
+          aria-pressed="false"
+          aria-describedby="status help"
+        >
+          <span class="micIcon" aria-hidden="true">🎙️</span>
+          <span class="micText" id="micText">muted</span>
+        </button>
+
+        <p id="help" class="help">
+          Tip: You can also press <kbd>Enter</kbd> or <kbd>Space</kbd> to toggle the mute button. 
+        </p>
+      </div>
+
+      <div
+        class="status"
+        id="status"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        Ready.
+      </div>
+
+      <div class="output" aria-labelledby="outLabel">
+        <div class="outputLabel" id="outLabel">Transcript</div>
+        <p id="out" class="outText" tabindex="0">No speech detected yet.</p>
+      </div>
+
+      <div class="actions">
+        <button id="clearBtn" class="secondary" type="button">
+          cancel
+        </button>
+      </div>
+    </section>
+  </main>
+
+  <script>
+  const micBtn = document.getElementById("micBtn");
+  const micText = document.getElementById("micText");
+  const statusEl = document.getElementById("status");
+  const outEl = document.getElementById("out");
+  const clearBtn = document.getElementById("clearBtn");
+
+  let muted = true; 
+
+  function renderMuteState() {
+    micBtn.setAttribute("aria-pressed", String(!muted));
+    document.body.toggleAttribute("data-listening", !muted);
+
+    if (muted) {
+      micText.textContent = "Microphone muted";
+      statusEl.textContent = "Microphone is off.";
+      micBtn.classList.remove("live");
+    } else {
+      micText.textContent = "Microphone on";
+      statusEl.textContent = "Microphone is on. Listening...";
+      micBtn.classList.add("live");
+    }
+  }
+
+  async function toggleMute() {
+    muted = !muted;
+    renderMuteState();
+
+    try {
+      await eel.set_mute(!muted)();
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  micBtn.addEventListener("click", toggleMute);
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      toggleMute();
+    }
+  });
+
+  clearBtn.addEventListener("click", () => {
+    outEl.textContent = "No speech detected yet.";
+    statusEl.textContent = muted
+      ? "Transcript cleared. Microphone is off."
+      : "Transcript cleared. Microphone is on.";
+    outEl.focus();
+  });
+
+  renderMuteState();
+</script>
+
+
+</body>
+</html>

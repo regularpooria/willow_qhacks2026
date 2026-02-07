@@ -2,10 +2,10 @@
 
 
 a = Analysis(
-    ['/home/regularpooria/Projects/qhacks2026/main.py'],
+    ['web.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[('web', 'web')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -22,7 +22,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='Clippy',
+    name='Willow',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -35,4 +35,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon=['favicon.ico'],
 )
