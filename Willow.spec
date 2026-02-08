@@ -1,5 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+import sys
 
 a = Analysis(
     ['web.py'],
@@ -25,7 +26,7 @@ exe = EXE(
     name='Willow',
     debug=False,
     bootloader_ignore_signals=False,
-    strip=True,
+    strip=(sys.platform != 'win32'),  # Only strip on Linux/Mac
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
