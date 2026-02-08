@@ -1,4 +1,4 @@
-from typing import Dict, Any, TYPE_CHECKING
+from typing import Dict, Any, TYPE_CHECKING, Optional
 import urllib.parse
 
 from public.tools.util_classes import (
@@ -41,148 +41,6 @@ def tool_youtube_search(
         return _result_ok({"status": "searched", "query": query, "url": url})
     except Exception as e:
         return _result_error(e)
-
-
-def tool_youtube_watch(
-    _controller: PlaywrightController, args: Dict[str, Any]
-) -> Dict[str, Any]:
-    """Search YouTube for `title` and open the first matching video.
-
-    Args: title (string)
-    """
-    title = args.get("title") or args.get("query")
-    if not title:
-        return _result_error("'title' parameter is required")
-    try:
-        if _controller.page is None:
-            _controller.start(headless=False)
-        page = _controller.page
-        if page is None:
-            return _result_error("failed to start browser")
-
-        q = urllib.parse.quote_plus(str(title))
-        search_url = f"https://www.youtube.com/results?search_query={q}"
-        page.goto(search_url, timeout=args.get("timeout", 30000))
-        try:
-            page.wait_for_selector(
-                "ytd-video-renderer,ytd-grid-video-renderer", timeout=8000
-            )
-        except Exception:
-            pass
-
-        # Try to click the first video result
-        first = page.query_selector(
-            "ytd-video-renderer a#video-title,ytd-grid-video-renderer a#video-title"
-        )
-        if not first:
-            # fallback: attempt to extract href via evaluate
-            href = page.evaluate(
-                "() => { const a = document.querySelector('ytd-video-renderer a#video-title, ytd-grid-video-renderer a#video-title'); return a ? a.href : null; }"
-            )
-            if not href:
-                return _result_error("no video result found")
-            page.goto(href)
-        else:
-            first.click()
-
-        # Wait for video page to load
-        try:
-            page.wait_for_selector("ytd-player", timeout=10000)
-        except Exception:
-            # best-effort wait
-            page.wait_for_load_state("networkidle")
-
-        current = page.url
-        title_actual = page.title()
-        return _result_ok(
-            {
-                "status": "playing",
-                "requested": title,
-                "title": title_actual,
-                "url": current,
-            }
-        )
-    except Exception as e:
-        return _result_error(e)
-
-
-def tool_youtube_like(
-    _controller: PlaywrightController, args: Dict[str, Any]
-) -> Dict[str, Any]:
-    """Like the currently open YouTube video page.
-
-    Performs a best-effort search for a Like button and clicks it.
-    """
-    try:
-        page = _controller.page
-        if page is None:
-            return _result_error("browser not started")
-        if "youtube.com/watch" not in (page.url or ""):
-            return _result_error("not on a YouTube video page")
-
-        clicked = page.evaluate(
-            """
-			() => {
-				const candidates = Array.from(document.querySelectorAll('button, tp-yt-paper-icon-button, ytd-toggle-button-renderer'));
-				for (const el of candidates) {
-					const label = (el.getAttribute && (el.getAttribute('aria-label')||'') || '').toLowerCase();
-					const title = (el.getAttribute && (el.getAttribute('title')||'') || '').toLowerCase();
-					const txt = (el.innerText||'').toLowerCase();
-					if (label.includes('like') || title.includes('like') || txt.includes('like')) {
-						el.click();
-						return true;
-					}
-				}
-				return false;
-			}
-			"""
-        )
-        if clicked:
-            return _result_ok({"status": "liked"})
-        else:
-            return _result_error("like button not found")
-    except Exception as e:
-        return _result_error(e)
-
-
-def tool_youtube_subscribe(
-    _controller: PlaywrightController, args: Dict[str, Any]
-) -> Dict[str, Any]:
-    """Subscribe to the channel when on a YouTube video or channel page.
-
-    Best-effort: clicks the first element containing 'subscribe'.
-    """
-    try:
-        page = _controller.page
-        if page is None:
-            return _result_error("browser not started")
-
-        clicked = page.evaluate(
-            """
-			() => {
-				// Look for elements whose text content or aria-label contains 'subscribe'
-				const candidates = Array.from(document.querySelectorAll('tp-yt-paper-button, yt-formatted-string, button, a, ytd-subscribe-button-renderer'));
-				for (const el of candidates) {
-					const label = (el.getAttribute && (el.getAttribute('aria-label')||'') || '').toLowerCase();
-					const txt = (el.innerText||'').toLowerCase();
-					if (label.includes('subscribe') || txt.includes('subscribe')) {
-						// avoid clicking 'subscribed' state
-						if (txt.includes('subscribed')) return false;
-						el.click();
-						return true;
-					}
-				}
-				return false;
-			}
-			"""
-        )
-        if clicked:
-            return _result_ok({"status": "subscribed"})
-        else:
-            return _result_error("subscribe button not found or already subscribed")
-    except Exception as e:
-        return _result_error(e)
-
 
 def tool_youtube_pause_play(
     _controller: PlaywrightController, args: Dict[str, Any]
@@ -235,42 +93,108 @@ def tool_youtube_pause_play(
         return _result_error(e)
 
 
+def tool_youtube_watch(
+    _controller: PlaywrightController, args: Dict[str, Any]
+) -> Dict[str, Any]:
+    """Click on a YouTube video from search results to watch it.
+
+    Can click by index (0-based for first result) or by matching text in the title.
+    Use case 1: User says "pick the first one" -> index=0
+    Use case 2: User says "watch [title text]" -> title="[title text]"
+    """
+    try:
+        page = _controller.page
+        if page is None:
+            return _result_error("browser not started")
+        if "youtube.com/results" not in (page.url or ""):
+            return _result_error("not on a YouTube search results page")
+
+        index = args.get("index")
+        title_search = args.get("title")
+
+        if index is None and title_search is None:
+            return _result_error("Either 'index' (0-based) or 'title' parameter is required")
+
+        # Use Playwright to find and click the video
+        if index is not None:
+            # Click by index (0-based)
+            clicked = page.evaluate(
+                f"""
+                () => {{
+                    const videos = Array.from(document.querySelectorAll('ytd-video-renderer, ytd-grid-video-renderer'));
+                    if (videos.length > {index}) {{
+                        const link = videos[{index}].querySelector('a#video-title');
+                        if (link) {{
+                            link.click();
+                            return true;
+                        }}
+                    }}
+                    return false;
+                }}
+                """
+            )
+        else:
+            # Click by title match (case-insensitive substring match)
+            escaped_search = title_search.replace('"', '\\"')
+            clicked = page.evaluate(
+                f"""
+                () => {{
+                    const query = "{escaped_search}".toLowerCase();
+                    const videos = Array.from(document.querySelectorAll('ytd-video-renderer, ytd-grid-video-renderer'));
+                    for (const video of videos) {{
+                        const titleEl = video.querySelector('a#video-title');
+                        if (titleEl && titleEl.textContent.toLowerCase().includes(query)) {{
+                            titleEl.click();
+                            return true;
+                        }}
+                    }}
+                    return false;
+                }}
+                """
+            )
+
+        if clicked:
+            return _result_ok(
+                {{
+                    "status": "clicked",
+                    "method": "index" if index is not None else "title_match",
+                }}
+            )
+        else:
+            return _result_error(
+                "Video not found"
+                if index is None
+                else f"No video at index {index}"
+            )
+    except Exception as e:
+        return _result_error(e)
+
+
 # Define specs for each YouTube tool
 _YOUTUBE_TOOL_SPECS = {
     "yt_search": ToolSpec(
         name="yt_search",
-        description="Search YouTube for videos. Opens headed browser and navigates to search results.",
+        description="Navigate to YouTube search results for a query. USAGE: When the user asks to search YouTube for a topic. This ONLY navigates to the search page; it does NOT select or open a specific video. Use this to show search results, then use yt_watch to select a video from the results. EXAMPLE: User says 'search YouTube for MrBeast' → use yt_search with query='MrBeast' to display results.",
         parameters={
             "type": "object",
             "properties": {"query": {"type": "string"}, "timeout": {"type": "integer"}},
         },
     ),
+    "yt_pause_play": ToolSpec(
+        name="yt_pause_play",
+        description="Toggle play/pause on the currently-playing YouTube video. USAGE: Use ONLY when a video is already playing (user is on a YouTube watch page). Call this when the user says 'play', 'pause', 'resume', or 'stop'. Do NOT use this to select or open a new video. EXAMPLE: A video is playing, user says 'pause' → call yt_pause_play with no arguments.",
+        parameters={"type": "object", "properties": {}},
+    ),
     "yt_watch": ToolSpec(
         name="yt_watch",
-        description="Search YouTube for a video by title and open the first result.",
+        description="Click on a video from YouTube search results to watch it. USAGE: Use ONLY when on a YouTube search results page (after yt_search). Select a video by either: (1) index - 0 for first result, 1 for second, etc., or (2) title - search text that matches part of the video title. EXAMPLES: User says 'pick the first one' → call yt_watch with index=0. User says 'watch the one about cats' → call yt_watch with title='cats'.",
         parameters={
             "type": "object",
             "properties": {
+                "index": {"type": "integer"},
                 "title": {"type": "string"},
-                "query": {"type": "string"},
-                "timeout": {"type": "integer"},
             },
         },
-    ),
-    "yt_like": ToolSpec(
-        name="yt_like",
-        description="Like the currently open YouTube video. Must be on a video page.",
-        parameters={"type": "object", "properties": {}},
-    ),
-    "yt_subscribe": ToolSpec(
-        name="yt_subscribe",
-        description="Subscribe to the channel on a YouTube video or channel page.",
-        parameters={"type": "object", "properties": {}},
-    ),
-    "yt_pause_play": ToolSpec(
-        name="yt_pause_play",
-        description="Toggle the current video (pause or play), if a video is open.",
-        parameters={"type": "object", "properties": {}},
     ),
 }
 
@@ -282,23 +206,13 @@ youtube_tools = [
         spec=_YOUTUBE_TOOL_SPECS["yt_search"],
     ),
     ToolDefinition(
-        name="yt_watch",
-        func=tool_youtube_watch,
-        spec=_YOUTUBE_TOOL_SPECS["yt_watch"],
-    ),
-    ToolDefinition(
-        name="yt_like",
-        func=tool_youtube_like,
-        spec=_YOUTUBE_TOOL_SPECS["yt_like"],
-    ),
-    ToolDefinition(
-        name="yt_subscribe",
-        func=tool_youtube_subscribe,
-        spec=_YOUTUBE_TOOL_SPECS["yt_subscribe"],
-    ),
-    ToolDefinition(
         name="yt_pause_play",
         func=tool_youtube_pause_play,
         spec=_YOUTUBE_TOOL_SPECS["yt_pause_play"],
+    ),
+    ToolDefinition(
+        name="yt_watch",
+        func=tool_youtube_watch,
+        spec=_YOUTUBE_TOOL_SPECS["yt_watch"],
     ),
 ]

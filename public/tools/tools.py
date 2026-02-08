@@ -35,7 +35,6 @@ from public.tools.util_classes import (
 from public.tools.YoutubeController import PlaywrightController
 
 from public.tools.tools_youtube import youtube_tools
-from public.tools.tools_weather import weather_tools
 from public.tools.tools_googlemaps import maps_tools
 
 try:
@@ -492,7 +491,7 @@ _CORE_TOOLS = {
 
 # Register modular tools (YouTube, Spotify, etc.)
 _MODULAR_TOOLS = {}
-for tool_def in youtube_tools + weather_tools + maps_tools:
+for tool_def in youtube_tools + maps_tools:
     _MODULAR_TOOLS[tool_def.name] = tool_def.func
 
 _TOOLS: Dict[str, Callable[[PlaywrightController, Dict[str, Any]], Dict[str, Any]]] = {
@@ -646,17 +645,16 @@ def _normalize_schema(params: Dict[str, Any]) -> Dict[str, Any]:
     """
     Convert your loose ToolSpec.parameters into strict JSON Schema
     required by OpenAI tools.
+
+    Preserve an explicit `required` list if provided in `params`.
+    Otherwise default to an empty required list (no forced required props).
     """
     schema = {
         "type": "object",
         "properties": params.get("properties", {}),
-        "required": [],
+        "required": params.get("required", []),
         "additionalProperties": False,
     }
-
-    # Any property without a default becomes required
-    for prop in schema["properties"].keys():
-        schema["required"].append(prop)
 
     return schema
 
@@ -691,7 +689,7 @@ def get_tool_specs() -> list[Dict[str, Any]]:
         )
 
     # Modular tools (YouTube, Weather, etc.)
-    for tool_def in youtube_tools + weather_tools + maps_tools:
+    for tool_def in youtube_tools + maps_tools:
         tools.append(
             _to_openai_tool(
                 name=tool_def.name,
