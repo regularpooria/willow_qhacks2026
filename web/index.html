@@ -172,12 +172,6 @@
     outEl.focus();
   });
 
-  // Function called from Python to update transcript
-  window.updateTranscript = function(text) {
-    outEl.textContent = text || "No speech detected yet.";
-    outEl.focus();
-  };
-
   // Initialize
   renderMuteState();
   </script>
