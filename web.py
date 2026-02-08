@@ -20,8 +20,8 @@ import random
 sys.setrecursionlimit(5000)
 APP_TITLE = "Willow"
 
-COMPACT_SIZE = (420, 380)
-FULL_SIZE = (900, 650)
+WINDOW_SIZE = (560, 740)
+WINDOW_OFFSET = (20, 90)
 
 # How often to re-assert topmost (some Windows setups can drop it)
 TOPMOST_PULSE_SECONDS = 1.0
@@ -61,7 +61,6 @@ waiting_audios_paths = [
 class AppState:
     def __init__(self):
         self.muted = True
-        self.current_mode = "compact"
         self.transcript = ""
         self.window: webview.Window | None = None
         self.recorder = None
@@ -149,16 +148,16 @@ class Recorder:
                 transcript_text = aud_to_trans()
                 if transcript_text:
                     state.transcript = transcript_text
+                    update_frontend_transcript(transcript_text)
                     playsound(random.choice(waiting_audios_paths), block=False)
 
-                    for i in range(3):
-                        response = LLM_call(state.transcript)
-                        if response != None:
-                            break
-                        else:
-                            state.transcript = "respond " + state.transcript
-
-                    trans_to_aud(response)
+                    response = LLM_call(state.transcript)
+                    if response != None:
+                        update_frontend_transcript(response)
+                        trans_to_aud(response)
+                    else:
+                        update_frontend_transcript("Done Chief!")
+                        trans_to_aud("Done chief!")
 
     def stop(self):
         self.running = False
@@ -170,54 +169,54 @@ class Recorder:
 
 
 # ==========================================
+# Frontend update helpers
+# ==========================================
+def update_frontend_transcript(text: str):
+    """Push transcript update to frontend"""
+    if state.window:
+        try:
+            escaped_text = text.replace("'", "\\'").replace("\n", "\\n")
+            state.window.evaluate_js(f"window.updateTranscript('{escaped_text}')")
+        except Exception as e:
+            print(f"⚠️ Failed to update frontend transcript: {e}")
+
+
+# ==========================================
 # Window positioning helpers
 # ==========================================
-def get_bottom_right_position(window_size: tuple[int, int]) -> tuple[int, int]:
-    """
-    Place window near bottom-right. On Windows we can ask pywebview for screen size.
-    On other platforms, fall back to 1920x1080.
-    """
-    w, h = int(window_size[0]), int(window_size[1])
+def get_screen_size() -> tuple[int, int]:
     try:
-        screen_w = webview.screens[0].width
-        screen_h = webview.screens[0].height
+        s = webview.screens[0]
+        return int(s.width), int(s.height)
     except Exception:
-        screen_w, screen_h = 1920, 1080
-
-    x = int(screen_w - w - 20)
-    y = int(screen_h - h - 100)
-    return x, y
+        return 1920, 1080
 
 
-def apply_mode(mode: str) -> dict:
-    """
-    Resize + reposition the single window. No recursion shenanigans:
-    - JS calls this once (button click)
-    - Python resizes/moves window
-    - JS resize handler updates CSS only (no callback into Python)
-    """
-    mode = "full" if mode == "full" else "compact"
-    state.current_mode = mode
-    size = FULL_SIZE if mode == "full" else COMPACT_SIZE
-    x, y = get_bottom_right_position(size)
+def get_bottom_right_position(
+    window_size: tuple[int, int], offset: tuple[int, int]
+) -> tuple[int, int]:
+    w, h = map(int, window_size)
+    off_x, off_y = map(int, offset)
 
-    resized = False
+    screen_w, screen_h = get_screen_size()
+    x = max(0, screen_w - w - off_x)
+    y = max(0, screen_h - h - off_y)
+    return int(x), int(y)
+
+
+def apply_window_geometry() -> dict:
+    x, y = get_bottom_right_position(WINDOW_SIZE, WINDOW_OFFSET)
+
+    ok = True
     if state.window is not None:
         try:
-            # Resize first, then move
-            state.window.resize(int(size[0]), int(size[1]))
+            state.window.resize(int(WINDOW_SIZE[0]), int(WINDOW_SIZE[1]))
             state.window.move(int(x), int(y))
-            resized = True
         except Exception as e:
-            print(f"⚠️  Failed to apply mode={mode}: {e}")
+            ok = False
+            print(f"⚠️ Failed to apply window geometry: {e}")
 
-    return {
-        "ok": True,
-        "mode": mode,
-        "resized": resized,
-        "size": list(size),
-        "pos": [x, y],
-    }
+    return {"ok": ok, "size": list(WINDOW_SIZE), "pos": [x, y]}
 
 
 def maintain_on_top():
@@ -245,16 +244,9 @@ class Api:
         print(f"🎙️  Microphone {'muted' if state.muted else 'LIVE'}")
         return {"ok": True, "muted": state.muted}
 
-    def set_window_mode(self, mode: str):
-        # mode is "compact" or "full"
-        return apply_mode(mode)
-
     def update_transcript(self, text: str):
         state.transcript = text or ""
         return {"ok": True}
-
-    def get_current_mode(self):
-        return {"mode": state.current_mode}
 
     def get_transcript(self):
         return {"transcript": state.transcript}
@@ -292,7 +284,7 @@ def start_audio_recording():
     threading.Thread(target=run_recorder, daemon=True).start()
 
 
-def on_loaded(window):
+def on_loaded(window=None):
     # Called once after the GUI loop starts.
     if state.window is None:
         return
@@ -304,7 +296,7 @@ def on_loaded(window):
         pass
 
     # Apply initial size/position
-    apply_mode(state.current_mode)
+    apply_window_geometry()
 
     # Start audio recording
     start_audio_recording()
@@ -322,8 +314,7 @@ def main():
         input("Press Enter to exit...")
         return
 
-    start_size = COMPACT_SIZE if state.current_mode == "compact" else FULL_SIZE
-    x, y = get_bottom_right_position(start_size)
+    x, y = get_bottom_right_position(WINDOW_SIZE, WINDOW_OFFSET)
     url = (web_dir / "index.html").resolve().as_uri()
 
     api = Api()
@@ -332,8 +323,8 @@ def main():
         APP_TITLE,
         url=url,
         js_api=api,
-        width=int(start_size[0]),
-        height=int(start_size[1]),
+        width=int(WINDOW_SIZE[0]),
+        height=int(WINDOW_SIZE[1]),
         x=int(x),
         y=int(y),
         on_top=True,

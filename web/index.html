@@ -10,11 +10,13 @@
 
 <body>
   <a class="skipLink" href="#main">Skip to main content</a>
-
+  
   <main id="main" class="shell" role="main">
     <header class="top" role="banner">
       <div class="brand">
-        <div class="logo" aria-hidden="true">🌅</div>
+        <div class="logo" aria-hidden="true">
+          <img src="tree.png" alt="Willow Logo">
+        </div>
         <div class="brandText">
           <h1 class="title">Willow</h1>
           <p class="subtitle">Your voice assistant</p>
@@ -33,12 +35,11 @@
           aria-pressed="false"
           aria-describedby="status help"
         >
-          <span class="micIcon" aria-hidden="true">🎙️</span>
-          <span class="micText" id="micText">muted</span>
+          <img src="butt2.png" alt="Microphone" class="micIcon">
         </button>
 
         <p id="help" class="help">
-          Tip: Press <kbd>Enter</kbd> or <kbd>Space</kbd> to toggle mute
+          Tip: Press <kbd>Enter</kbd> or <kbd>Space</kbd> to toggle
         </p>
       </div>
 
@@ -49,7 +50,7 @@
         aria-live="polite"
         aria-atomic="true"
       >
-        Ready.
+        Ready to listen
       </div>
 
       <div class="output" aria-labelledby="outLabel">
@@ -58,9 +59,13 @@
       </div>
 
       <div class="actions">
-        <button id="clearBtn" class="secondary" type="button">Clear</button>
+        <button id="clearBtn" class="secondary" type="button">
+          <span class="btnIcon">🗑️</span>
+          <span>Clear</span>
+        </button>
         <button id="modeBtn" class="secondary" type="button">
-          <span id="modeBtnText">Expand</span>
+          <span class="btnIcon">❗</span>
+          <span id="modeBtnText">Help</span>
         </button>
       </div>
     </section>
@@ -68,7 +73,6 @@
 
   <script>
   const micBtn = document.getElementById("micBtn");
-  const micText = document.getElementById("micText");
   const statusEl = document.getElementById("status");
   const outEl = document.getElementById("out");
   const clearBtn = document.getElementById("clearBtn");
@@ -108,15 +112,19 @@
   });
 
   function updateLayoutMode() {
-    // Detect if we're in compact mode based on window size or mode variable
     const compactNow = mode === "compact" || window.innerWidth < 520;
     document.body.classList.toggle("isCompact", compactNow);
     
-    // Update button text
-    modeBtnText.textContent = compactNow ? "Expand" : "Compact";
+    const btnIcon = modeBtn.querySelector('.btnIcon');
+    if (compactNow) {
+      modeBtnText.textContent = "Help";
+      if (btnIcon) btnIcon.textContent = "❗";
+    } else {
+      modeBtnText.textContent = "Help";
+      if (btnIcon) btnIcon.textContent = "❗";
+    }
   }
 
-  // Listen for window resize events
   window.addEventListener("resize", updateLayoutMode);
   
   // Initial layout check
@@ -127,12 +135,10 @@
     document.body.toggleAttribute("data-listening", !muted);
 
     if (muted) {
-      micText.textContent = "Muted";
-      statusEl.textContent = "Microphone is off.";
+      statusEl.textContent = "Microphone is off";
       micBtn.classList.remove("live");
     } else {
-      micText.textContent = "Listening";
-      statusEl.textContent = "Listening...";
+      statusEl.textContent = "I'm listening";
       micBtn.classList.add("live");
     }
   }
@@ -162,9 +168,15 @@
     outEl.textContent = "No speech detected yet.";
     statusEl.textContent = muted
       ? "Transcript cleared. Microphone is off."
-      : "Transcript cleared. Listening...";
+      : "Transcript cleared. I'm listening...";
     outEl.focus();
   });
+
+  // Function called from Python to update transcript
+  window.updateTranscript = function(text) {
+    outEl.textContent = text || "No speech detected yet.";
+    outEl.focus();
+  };
 
   // Initialize
   renderMuteState();
