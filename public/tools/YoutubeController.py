@@ -27,10 +27,24 @@ class PlaywrightController:
 		if self._playwright is None:
 			self._playwright = sync_playwright().start()
 		if self.browser is None:
-			self.browser = self._playwright.chromium.launch(headless=headless)
-			self._context = self.browser.new_context()
+			p = self._playwright
+			# Launch with preferred flags and a headed browser by default when headless=False
+			self.browser = p.chromium.launch(
+				headless=headless,
+				args=["--disable-blink-features=AutomationControlled"],
+			)
+			self._context = self.browser.new_context(
+				user_agent=(
+					"Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+					"AppleWebKit/537.36 (KHTML, like Gecko) "
+					"Chrome/121.0.0.0 Safari/537.36"
+				),
+				locale="en-CA",
+				timezone_id="America/Toronto",
+				viewport={"width": 1920, "height": 1080},
+			)
 			self.page = self._context.new_page()
-        # If browser already running, reuse existing page — don't create a new one!
+			# If browser already running, reuse existing page — don't create a new one!
 
 	def stop(self) -> None:
 		if self.browser:

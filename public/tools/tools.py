@@ -256,97 +256,57 @@ def tool_find_element(
 def tool_open_website_name(
     _controller: PlaywrightController, args: Dict[str, Any]
 ) -> Dict[str, Any]:
-    """Search for a website by name using Google and open the first result.
-
-    Tries Google first; falls back to DuckDuckGo.
-    """
+    """Search for a website by name using Google or DuckDuckGo and open the first result."""
     name = args.get("name") or args.get("query")
     if not name:
         return _result_error("'name' or 'query' parameter is required")
+    
     try:
-        if _controller.page is None:
-            _controller.start(headless=False)
         page = _controller.page
         if page is None:
-            return _result_error("failed to start browser")
-
-        q = urllib.parse.quote_plus(str(name))
-        # Try Google first (using Startpage as a privacy-preserving front-end)
-        search_url = f"https://www.startpage.com/sp/search?query={q}"
-        page.goto(search_url, timeout=args.get("timeout", 15000))
-        href = None
-        timeout = args.get("timeout", 15000)
-
-        # Attempt to click the Google result link (preferred)
+            # Start a headed browser if none is running
+            _controller.start(headless=False)
+            page = _controller.page
+            if page is None:
+                return _result_error("failed to start browser")
+        
+        # Use DuckDuckGo only
         try:
-            selector = "div.result:nth-child(2) > a:nth-child(2)"
-            page.wait_for_selector(selector, timeout=6000)
-            el = page.query_selector(selector)
-            if el:
-                try:
-                    page.evaluate("(el) => { el.scrollIntoView(); el.click(); }", el)
-                    page.wait_for_load_state("load", timeout=timeout)
-                    href = page.url
-                except Exception:
-                    # fallback: read the href attribute if click didn't navigate
-                    href = page.evaluate(
-                        "() => { const a = document.querySelector('div.result:nth-child(2) > a:nth-child(2)'); return a ? a.href : null }"
-                    )
-        except Exception:
-            href = None
-
-        if not href:
-            # fallback to DuckDuckGo
-            dd_url = f"https://duckduckgo.com/?q={q}"
-            page.goto(dd_url, timeout=timeout)
-            selectors = ["a.result__a", "div#links a"]
-            for sel in selectors:
-                try:
-                    page.wait_for_selector(sel, timeout=6000)
-                    el = page.query_selector(sel)
-                    if el:
-                        try:
-                            page.evaluate("(el) => { el.scrollIntoView(); el.click(); }", el)
-                            page.wait_for_load_state("load", timeout=timeout)
-                            href = page.url
-                            break
-                        except Exception:
-                            # read href attribute as fallback
-                            href = page.evaluate(
-                                f"() => {{ const a = document.querySelector('{sel}'); return a ? a.href : null }}"
-                            )
-                            if href:
-                                break
-                except Exception:
-                    continue
-
-            # If DuckDuckGo returns a redirect link (e.g. /l/?uddg=...), decode uddg to the target URL
-            try:
-                if href and "duckduckgo.com" in href and ("uddg=" in href or "/l/?" in href):
-                    parsed = urllib.parse.urlparse(href)
-                    q = urllib.parse.parse_qs(parsed.query)
-                    uddg = q.get("uddg") or q.get("u")
-                    if uddg:
-                        href = urllib.parse.unquote(uddg[0])
-                # handle relative hrefs
-                if href and href.startswith("/"):
-                    href = urllib.parse.urljoin(page.url, href)
-            except Exception:
-                pass
-
-        if not href:
-            return _result_error("no search result found")
-
-        # If clicking didn't navigate the current page (e.g. opened a new tab), attempt to open via href
-        try:
-            if href and page.url != href:
-                page.goto(href, timeout=timeout)
-        except Exception:
-            pass
-
-        return _result_ok({"status": "opened", "name": name, "url": href})
+            return _search_and_open_duckduckgo(_controller, name)
+        except Exception as ddg_error:
+            return _result_error(f"failed to open website '{name}': {str(ddg_error)}")
     except Exception as e:
-        return _result_error(e)
+        return _result_error(f"unexpected error in tool_open_website_name: {str(e)}")
+
+
+# Startpage support removed — using DuckDuckGo only
+
+def _search_and_open_duckduckgo(
+    _controller: PlaywrightController, query: str
+) -> Dict[str, Any]:
+    """Helper: Search DuckDuckGo HTML and open first result."""
+    page = _controller.page
+    if page is None:
+        raise Exception("page not available")
+    
+    # Navigate directly to DuckDuckGo HTML-only search results
+    search_url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(query)}"
+    page.goto(search_url, timeout=30000)
+    page.wait_for_timeout(1000)
+    
+    # Click the first result link using the HTML-only selector
+    selector = "#links > div:nth-child(1) > div > h2 > a"
+    try:
+        page.click(selector)
+        page.wait_for_timeout(1000)
+        return _result_ok({
+            "status": "opened",
+            "source": "duckduckgo_html",
+            "query": query,
+            "url": page.url
+        })
+    except Exception as e:
+        raise Exception(f"failed to click DuckDuckGo result: {e}")
 
 
 def tool_click_by_name(
@@ -508,24 +468,24 @@ def tool_fullscreen(
 # ============================================================================
 
 _CORE_TOOLS = {
-    "start_browser": tool_start_browser,
-    "goto": tool_goto,
-    "click": tool_click,
-    "click_by_name": tool_click_by_name,
-    "fill": tool_fill,
-    "screenshot": tool_screenshot,
-    "eval": tool_eval,
-    "text_content": tool_text_content,
-    "close_browser": tool_close_browser,
-    "find_element": tool_find_element,
+    # "start_browser": tool_start_browser,  # 
+    # "goto": tool_goto,   #
+    # "click": tool_click,
+    # "click_by_name": tool_click_by_name,
+    # "fill": tool_fill,
+    # "screenshot": tool_screenshot,
+    # "eval": tool_eval,
+    # "text_content": tool_text_content,
+    # "close_browser": tool_close_browser,
+    # "find_element": tool_find_element,
     "open_website_name": tool_open_website_name,
-    "close_webpage": tool_close_webpage,
+    # "close_webpage": tool_close_webpage,
     "go_back": tool_go_back,
     "go_forward": tool_go_forward,
     "reload": tool_reload,
-    "quit": tool_quit,
-    "shrink": tool_shrink,
-    "fullscreen": tool_fullscreen,
+    # "quit": tool_quit,
+    # "shrink": tool_shrink,
+    # "fullscreen": tool_fullscreen,
 }
 
 # Register modular tools (YouTube, Spotify, etc.)

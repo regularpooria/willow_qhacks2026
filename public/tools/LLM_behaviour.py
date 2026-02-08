@@ -6,19 +6,19 @@ import os
 
 load_dotenv()
 
-messages = [
-    {
-        "role": "system",
-        "content": "You help elderly people interact with their browser. You have access to custom tools for YouTube and Google Maps, along with general browsing tools. You MUST be super concise: reply to the user in at MOST one sentence.",
-    }
-]
-
 
 def LLM_call(transcript):
     tools = get_tool_specs()
     print(tools)
 
     client = OpenAI(api_key=os.getenv("OPENAI_KEY"))
+    messages = [
+        {
+            "role": "system",
+            "content": "You help elderly people interact with their browser. You have access to custom tools for YouTube and Google Maps, along with general browsing tools. You MUST be super concise: reply to the user in at MOST one sentence.",
+        }
+    ]
+
     messages.append({"role": "user", "content": transcript})
 
     response = client.chat.completions.create(
