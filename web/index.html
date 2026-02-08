@@ -172,6 +172,14 @@
     outEl.focus();
   });
 
+  // Function to update transcript from Python backend
+  window.updateTranscript = function(text) {
+    if (text) {
+      outEl.textContent = text;
+      outEl.focus();
+    }
+  };
+
   // Initialize
   renderMuteState();
   </script>

@@ -57,6 +57,12 @@ waiting_audios_paths = [
     resource_path("public/audios/working_on_it.mp3"),
 ]
 
+greet_audios_paths = [
+    resource_path("public/audios/greet1.mp3"),
+    resource_path("public/audios/greet2.mp3"),
+    resource_path("public/audios/greet3.mp3"),
+]
+
 
 class AppState:
     def __init__(self):
@@ -148,7 +154,6 @@ class Recorder:
                 transcript_text = aud_to_trans()
                 if transcript_text:
                     state.transcript = transcript_text
-                    update_frontend_transcript(transcript_text)
                     playsound(random.choice(waiting_audios_paths), block=False)
 
                     response = LLM_call(state.transcript)
@@ -297,6 +302,9 @@ def on_loaded(window=None):
 
     # Apply initial size/position
     apply_window_geometry()
+
+    rand_audio = random.choice(greet_audios_paths)
+    playsound(rand_audio)
 
     # Start audio recording
     start_audio_recording()
