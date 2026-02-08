@@ -233,7 +233,7 @@ def tool_find_element(
                 if score > best_score:
                     # compute a CSS selector and outerHTML via JS for precision
                     info = page.evaluate(
-                        "el => { function cssPath(el){ if(el.id) return '#'+el.id; var path=[]; while(el && el.nodeType===1){ var sel=el.nodeName.toLowerCase(); if(el.className){ var c=String(el.className).trim().split(/\s+/)[0]; if(c) sel += '.'+c; } var parent=el.parentElement; if(parent){ var sameTagSiblings = Array.from(parent.children).filter(e=>e.nodeName===el.nodeName); if(sameTagSiblings.length>1){ var i=Array.from(parent.children).filter(e=>e.nodeName===el.nodeName).indexOf(el)+1; sel += ':nth-of-type('+i+')'; } } path.unshift(sel); el=el.parentElement; } return path.join(' > ');} return {selector: cssPath(el), outerHTML: el.outerHTML, text: el.innerText}; }",
+                        "el => { function cssPath(el){ if(el.id) return '#'+el.id; var path=[]; while(el && el.nodeType===1){ var sel=el.nodeName.toLowerCase(); if(el.className){ var c=String(el.className).trim().split(/\\s+/)[0]; if(c) sel += '.'+c; } var parent=el.parentElement; if(parent){ var sameTagSiblings = Array.from(parent.children).filter(e=>e.nodeName===el.nodeName); if(sameTagSiblings.length>1){ var i=Array.from(parent.children).filter(e=>e.nodeName===el.nodeName).indexOf(el)+1; sel += ':nth-of-type('+i+')'; } } path.unshift(sel); el=el.parentElement; } return path.join(' > ');} return {selector: cssPath(el), outerHTML: el.outerHTML, text: el.innerText}; }",
                         node,
                     )
                     best = {
@@ -271,40 +271,79 @@ def tool_open_website_name(
             return _result_error("failed to start browser")
 
         q = urllib.parse.quote_plus(str(name))
-        # Try Google first
+        # Try Google first (using Startpage as a privacy-preserving front-end)
         search_url = f"https://www.startpage.com/sp/search?query={q}"
         page.goto(search_url, timeout=args.get("timeout", 15000))
         href = None
+        timeout = args.get("timeout", 15000)
+
+        # Attempt to click the Google result link (preferred)
         try:
-            # common Google result selector
-            page.wait_for_selector(
-                "div.result:nth-child(2) > a:nth-child(2)", timeout=6000
-            )
-            href = page.evaluate(
-                "() => { const a = document.querySelector('div.result:nth-child(2) > a:nth-child(2)'); return a ? a.href : null }"
-            )
+            selector = "div.result:nth-child(2) > a:nth-child(2)"
+            page.wait_for_selector(selector, timeout=6000)
+            el = page.query_selector(selector)
+            if el:
+                try:
+                    page.evaluate("(el) => { el.scrollIntoView(); el.click(); }", el)
+                    page.wait_for_load_state("load", timeout=timeout)
+                    href = page.url
+                except Exception:
+                    # fallback: read the href attribute if click didn't navigate
+                    href = page.evaluate(
+                        "() => { const a = document.querySelector('div.result:nth-child(2) > a:nth-child(2)'); return a ? a.href : null }"
+                    )
         except Exception:
             href = None
 
         if not href:
             # fallback to DuckDuckGo
             dd_url = f"https://duckduckgo.com/?q={q}"
-            page.goto(dd_url, timeout=args.get("timeout", 15000))
+            page.goto(dd_url, timeout=timeout)
+            selectors = ["a.result__a", "div#links a"]
+            for sel in selectors:
+                try:
+                    page.wait_for_selector(sel, timeout=6000)
+                    el = page.query_selector(sel)
+                    if el:
+                        try:
+                            page.evaluate("(el) => { el.scrollIntoView(); el.click(); }", el)
+                            page.wait_for_load_state("load", timeout=timeout)
+                            href = page.url
+                            break
+                        except Exception:
+                            # read href attribute as fallback
+                            href = page.evaluate(
+                                f"() => {{ const a = document.querySelector('{sel}'); return a ? a.href : null }}"
+                            )
+                            if href:
+                                break
+                except Exception:
+                    continue
+
+            # If DuckDuckGo returns a redirect link (e.g. /l/?uddg=...), decode uddg to the target URL
             try:
-                page.wait_for_selector("a.result__a", timeout=6000)
-                href = page.evaluate(
-                    "() => { const a = document.querySelector('a.result__a'); return a ? a.href : null }"
-                )
+                if href and "duckduckgo.com" in href and ("uddg=" in href or "/l/?" in href):
+                    parsed = urllib.parse.urlparse(href)
+                    q = urllib.parse.parse_qs(parsed.query)
+                    uddg = q.get("uddg") or q.get("u")
+                    if uddg:
+                        href = urllib.parse.unquote(uddg[0])
+                # handle relative hrefs
+                if href and href.startswith("/"):
+                    href = urllib.parse.urljoin(page.url, href)
             except Exception:
-                href = page.evaluate(
-                    "() => { const r = document.querySelector('div#links a'); return r ? r.href : null }"
-                )
+                pass
 
         if not href:
             return _result_error("no search result found")
 
-        # Navigate directly to the top result
-        page.goto(href, timeout=args.get("timeout", 15000))
+        # If clicking didn't navigate the current page (e.g. opened a new tab), attempt to open via href
+        try:
+            if href and page.url != href:
+                page.goto(href, timeout=timeout)
+        except Exception:
+            pass
+
         return _result_ok({"status": "opened", "name": name, "url": href})
     except Exception as e:
         return _result_error(e)
