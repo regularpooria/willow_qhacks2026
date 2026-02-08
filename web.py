@@ -111,9 +111,11 @@ class Recorder:
         current = time.time()
         end = time.time() + TIMEOUT_LENGTH
 
+        muted_during_recording = False
         while current <= end and self.running:
             if state.muted:
-                print("Muted during recording, stopping")
+                print("Muted during recording, saving and transcribing")
+                muted_during_recording = True
                 break
 
             data = self.stream.read(chunk)
@@ -123,8 +125,9 @@ class Recorder:
             current = time.time()
             rec.append(data)
 
-        if not state.muted and rec:
+        if rec:
             self.write(b"".join(rec))
+        return muted_during_recording
 
     def write(self, recording):
         n_files = 0
@@ -144,17 +147,19 @@ class Recorder:
         self.running = True
         while self.running:
             if state.muted:
-                time.sleep(0.1)
+                time.sleep(0.5)
                 continue
 
             input_data = self.stream.read(chunk)
             rms_val = self.rms(input_data)
             if rms_val > Threshold:
-                self.record()
+                muted_during_recording = self.record()
                 transcript_text = aud_to_trans()
                 if transcript_text:
                     state.transcript = transcript_text
-                    playsound(random.choice(waiting_audios_paths), block=False)
+                    
+                    if not muted_during_recording:
+                        playsound(random.choice(waiting_audios_paths), block=False)
 
                     response = LLM_call(state.transcript)
                     if response != None:
