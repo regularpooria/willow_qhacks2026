@@ -48,254 +48,253 @@ def tool_youtube_search(
 # YouTube helpers for yt_watch
 # -----------------------------
 
-def _extract_video_list(page, max_results: int = 20):
-    """Extract a list of visible video entries from a YouTube search or suggestions.
-
-    Returns a list of dicts: {index, title, href, channel, duration, snippet}
+def _extract_videos_from_page(page, max_results: int = 20):
+    """Extract all visible videos from the current YouTube search/results page.
+    
+    Handles regular videos (ytd-video-renderer, ytd-grid-video-renderer) and shorts.
+    Returns list of dicts: {index, title, channel, description, element_index}
     """
-    js = f"""
-    (maxResults) => {{
-        const nodes = Array.from(document.querySelectorAll('ytd-video-renderer,ytd-grid-video-renderer'));
+    js = """
+    (maxResults) => {
+        // Select both regular videos and shorts
+        const videoSelectors = 'ytd-video-renderer, ytd-grid-video-renderer, ytd-reel-item-renderer';
+        const nodes = Array.from(document.querySelectorAll(videoSelectors));
         const out = [];
-        for (let i=0;i<Math.min(nodes.length,maxResults);i++){{
+        
+        for (let i = 0; i < Math.min(nodes.length, maxResults); i++) {
             const el = nodes[i];
-            try{{
-                const a = el.querySelector('a#video-title') || el.querySelector('a#video-title-link') || el.querySelector('a');
-                const href = a ? (a.href || null) : null;
-                const title = a ? (a.innerText||a.textContent||'').trim() : (el.querySelector('#title') ? el.querySelector('#title').innerText.trim() : '');
-                const channelEl = el.querySelector('#channel-name') || el.querySelector('ytd-channel-name a') || el.querySelector('.yt-simple-endpoint.style-scope.yt-formatted-string');
-                const channel = channelEl ? (channelEl.innerText||'').trim() : '';
-                const durEl = el.querySelector('ytd-thumbnail-overlay-time-status-renderer') || el.querySelector('.ytd-thumbnail-overlay-time-status-renderer') || el.querySelector('.video-time');
-                const duration = durEl ? (durEl.innerText||'').trim() : '';
-                const snippetEl = el.querySelector('#description-text') || el.querySelector('#description') || el.querySelector('.yt-lockup-description');
-                const snippet = snippetEl ? (snippetEl.innerText||'').trim() : '';
-                out.push({title:title, href:href, channel:channel, duration:duration, snippet:snippet});
-            }}catch(e){{ continue; }}
-        }}
+            try {
+                // Extract title
+                const titleEl = el.querySelector('a#video-title, a#video-title-link, .yt-simple-endpoint');
+                const title = titleEl ? (titleEl.innerText || titleEl.textContent || '').trim() : '';
+                
+                // Extract channel/creator name
+                const channelEl = el.querySelector('#channel-name, ytd-channel-name a, .ytd-channel-name');
+                const channel = channelEl ? (channelEl.innerText || '').trim().split('\\n')[0] : '';
+                
+                // Extract description/snippet
+                const descEl = el.querySelector('#description-text, #description, .yt-lockup-description');
+                const description = descEl ? (descEl.innerText || '').trim() : '';
+                
+                if (title) {
+                    out.push({
+                        index: i + 1,
+                        title: title,
+                        channel: channel,
+                        description: description,
+                        element_index: i
+                    });
+                }
+            } catch (e) {
+                continue;
+            }
+        }
         return out;
-    }}
+    }
     """
     try:
         return page.evaluate(js, max_results)
     except Exception:
-        # Best-effort fallback: return empty list
         return []
 
 
 def _score_match(entry: Dict[str, Any], query: str) -> int:
+    """Score how well a query matches a video entry."""
     q = (query or '').lower()
     if not q:
         return 0
+    
     score = 0
     title = (entry.get('title') or '').lower()
     channel = (entry.get('channel') or '').lower()
-    snippet = (entry.get('snippet') or '').lower()
-    tokens = [t for t in q.split() if t]
-    for t in tokens:
-        if t in title:
+    description = (entry.get('description') or '').lower()
+    
+    tokens = [t.strip() for t in q.split() if t.strip()]
+    
+    for token in tokens:
+        if token in title:
             score += 30
-        if t in channel:
+        elif token in channel:
             score += 25
-        if t in snippet:
+        elif token in description:
             score += 10
-    # small boost for exact phrase
-    if q in title:
-        score += 10
+    
     return score
 
 
-def _parse_selection(selection: Any) -> Optional[int]:
-    if selection is None:
+def _parse_ordinal(selection: str) -> Optional[int]:
+    """Parse ordinal words like 'first', 'second', 'the first one', etc. to index.
+    
+    Returns 0-based index or None if not parseable.
+    """
+    if not selection:
         return None
-    if isinstance(selection, int):
-        return max(0, selection - 1)
+    
     s = str(selection).strip().lower()
-    ord_map = {
-        'first': 0, '1st': 0, 'one': 0, '1': 0,
-        'second': 1, '2nd': 1, 'two': 1, '2': 1,
-        'third': 2, '3rd': 2, 'three': 2, '3': 2,
-        'fourth': 3, '4th': 3, '4': 3,
+    
+    # Map ordinal words to indices
+    ordinal_map = {
+        'first': 0, '1st': 0, 'one': 0,
+        'second': 1, '2nd': 1, 'two': 1,
+        'third': 2, '3rd': 2, 'three': 2,
+        'fourth': 3, '4th': 3, 'four': 3,
+        'fifth': 4, '5th': 4, 'five': 4,
     }
-    if s in ord_map:
-        return ord_map[s]
-    # try to parse an integer
+    
+    # Try exact match
+    if s in ordinal_map:
+        return ordinal_map[s]
+    
+    # Try phrases like "the first one", "the second video", etc.
+    for word, idx in ordinal_map.items():
+        if word in s:
+            return idx
+    
+    # Try to parse a number
     try:
-        n = int(''.join(ch for ch in s if ch.isdigit()))
-        return max(0, n-1)
-    except Exception:
-        return None
+        num = int(''.join(ch for ch in s if ch.isdigit()))
+        if num > 0:
+            return num - 1
+    except (ValueError, IndexError):
+        pass
+    
+    return None
+
 
 
 def tool_youtube_watch(
     _controller: PlaywrightController, args: Dict[str, Any]
 ) -> Dict[str, Any]:
-    """Pick and open a YouTube video from the currently-open YouTube search or watch page.
-
-    Precondition: the current `_controller.page` must be set and must be a YouTube
-    search results page (`/results`) or a watch page (`/watch`). This tool will
-    NOT start or navigate to YouTube automatically.
-
-    Args (optional):
-      - query: loose-match string to choose a video by title or channel
-      - selection: ordinal or semantic selection (e.g. "first", "the second one", or an index)
-      - timeout: integer milliseconds for waits
-
+    """Select and play a YouTube video from the current search results page.
+    
+    MUST be called when a YouTube search results page (/results) is already open.
+    
+    Args:
+      - query (optional): loose text to match against video title, channel, or description
+      - selection (optional): ordinal word like "first", "second", "the first one", etc.
+      - timeout (optional): milliseconds to wait
+      
     Behavior:
-      - When on a search page: extract visible results and cache them to
-        `_controller.last_yt_results` so a follow-up call can select by index.
-      - If `query` present: choose best fuzzy match and open it.
-      - If `selection` present: interpret ordinal/index or perform fuzzy match.
-      - Returns `_result_ok` with `status` and `match` or `ambiguous`.
+      1. Extracts all visible videos from the current page
+      2. If query provided: finds best fuzzy match
+      3. If selection provided: picks by ordinal (1st, 2nd, etc.)
+      4. Clicks the video container to open it
+      5. Verifies the page navigated to a watch URL
+      6. Returns success only if video actually loaded
     """
     try:
         page = _controller.page
         if page is None:
             return _result_error("browser not started; yt_watch requires an open YouTube page")
-
+        
         url = (page.url or '').lower()
-        if 'youtube.com/results' not in url and 'youtube.com/watch' not in url:
-            return _result_error("yt_watch may only be called when a YouTube search or video page is open")
-
-        timeout = int(args.get('timeout', 10000))
-        query = args.get('query') or args.get('title')
+        if 'youtube.com/results' not in url:
+            return _result_error("yt_watch only works on YouTube search results pages (/results)")
+        
+        timeout = int(args.get('timeout', 15000))
+        query = args.get('query')
         selection = args.get('selection')
-
-        # If we're on a search results page, extract and cache the visible results
-        if 'youtube.com/results' in url:
-            results = _extract_video_list(page, max_results=20)
-            _controller.last_yt_results = results
-
-            if not results:
-                return _result_error('no video entries found on the search page')
-
-            # If no parameters, return the short list so the LLM can ask the user
-            if not query and not selection:
-                # Return top 6 to avoid huge payloads
-                return _result_ok({'status': 'listed', 'results': results[:6]})
-
-            # Handle selection (ordinal / index)
-            sel_index = _parse_selection(selection)
-            if sel_index is not None and 0 <= sel_index < len(results):
-                entry = results[sel_index]
-                href = entry.get('href')
-                if href:
-                    try:
-                        page.goto(href, timeout=timeout)
-                    except Exception:
-                        try:
-                            # best-effort click via evaluate
-                            page.evaluate("(h)=>{ const a = Array.from(document.querySelectorAll('a')).find(x=>x.href===h); if(a) a.click(); }", href)
-                        except Exception:
-                            pass
-                    try:
-                        page.wait_for_selector('ytd-player', timeout=timeout)
-                    except Exception:
-                        page.wait_for_load_state('networkidle')
-                    return _result_ok({'status': 'playing', 'match': entry})
-                else:
-                    return _result_error('selected entry has no href')
-
-            # If a query is provided, fuzzy match against cached results
-            if query:
-                best = None
-                best_score = -1
-                for r in results:
-                    s = _score_match(r, query)
-                    if s > best_score:
-                        best_score = s
-                        best = r
-                if best and best_score >= 5:
-                    href = best.get('href')
-                    if href:
-                        try:
-                            page.goto(href, timeout=timeout)
-                        except Exception:
-                            pass
-                        try:
-                            page.wait_for_selector('ytd-player', timeout=timeout)
-                        except Exception:
-                            page.wait_for_load_state('networkidle')
-                        return _result_ok({'status': 'playing', 'match': best, 'score': best_score})
-                # ambiguous or not found: return top options for disambiguation
-                # sort by score and return first 4
-                scored = [(r, _score_match(r, query)) for r in results]
+        
+        # Extract all visible videos from the page
+        videos = _extract_videos_from_page(page, max_results=30)
+        if not videos:
+            return _result_error('no videos found on this page')
+        
+        # Cache for potential follow-up calls
+        _controller.last_yt_results = videos
+        
+        # If no query or selection, return the list so LLM can ask user which one
+        if not query and not selection:
+            preview = [{'index': v['index'], 'title': v['title'], 'channel': v['channel']} for v in videos[:6]]
+            return _result_ok({'status': 'listed', 'count': len(videos), 'preview': preview})
+        
+        # Determine which video to click
+        target_video = None
+        
+        # Try selection first (ordinal like "first", "second")
+        if selection:
+            idx = _parse_ordinal(selection)
+            if idx is not None and 0 <= idx < len(videos):
+                target_video = videos[idx]
+        
+        # If no selection match, try query (fuzzy text match)
+        if not target_video and query:
+            best = None
+            best_score = -1
+            for v in videos:
+                score = _score_match(v, query)
+                if score > best_score:
+                    best_score = score
+                    best = v
+            if best and best_score >= 5:
+                target_video = best
+            else:
+                # No good match found
+                scored = [(v, _score_match(v, query)) for v in videos]
                 scored.sort(key=lambda x: x[1], reverse=True)
-                options = [r for r,s in scored[:4]]
-                return _result_ok({'status': 'ambiguous', 'query': query, 'options': options})
-
-        # If we're on a watch page and selection requested, attempt to pick from suggestions
-        if 'youtube.com/watch' in url:
-            # If selection is omitted but query provided, try to match against suggestions
-            # Extract sidebar suggestions (compact renderers)
+                top_options = [v for v, _ in scored[:4]]
+                return _result_ok({
+                    'status': 'no_match',
+                    'query': query,
+                    'message': f"No clear match for '{query}'. Found {len(videos)} videos.",
+                    'suggestions': top_options
+                })
+        
+        # If still no target, something went wrong
+        if not target_video:
+            return _result_error('could not determine which video to play')
+        
+        # Click the video by its container position
+        element_idx = target_video['element_index']
+        try:
+            js = f"""
+            (idx) => {{
+                const videoSelectors = 'ytd-video-renderer, ytd-grid-video-renderer, ytd-reel-item-renderer';
+                const nodes = Array.from(document.querySelectorAll(videoSelectors));
+                if (idx < nodes.length) {{
+                    const el = nodes[idx];
+                    // Click anywhere on the video container to open it
+                    el.click();
+                    return true;
+                }}
+                return false;
+            }}
+            """
+            clicked = page.evaluate(js, element_idx)
+            if not clicked:
+                return _result_error('failed to locate video element on page')
+        except Exception as e:
+            return _result_error(f'error clicking video: {e}')
+        
+        # Wait for the watch page to load
+        try:
+            page.wait_for_url('**/watch?v=**', timeout=timeout)
+        except Exception:
+            # Try waiting for the player instead
             try:
-                js = """
-                (maxResults) => {
-                    const nodes = Array.from(document.querySelectorAll('ytd-compact-video-renderer, ytd-compact-autoplay-renderer'));
-                    const out = [];
-                    for (let i=0;i<Math.min(nodes.length,maxResults);i++){
-                        const el = nodes[i];
-                        try{
-                            const a = el.querySelector('a#video-title') || el.querySelector('a');
-                            const href = a ? (a.href || null) : null;
-                            const title = a ? (a.innerText||'').trim() : '';
-                            const channelEl = el.querySelector('#channel-name') || el.querySelector('ytd-channel-name a');
-                            const channel = channelEl ? (channelEl.innerText||'').trim() : '';
-                            out.push({title:title, href:href, channel:channel});
-                        }catch(e){ continue; }
-                    }
-                    return out;
-                }
-                """
-                suggestions = page.evaluate(js, 20)
+                page.wait_for_selector('ytd-player', timeout=5000)
             except Exception:
-                suggestions = []
-
-            if not suggestions:
-                return _result_error('no suggestions found on watch page')
-
-            _controller.last_yt_results = suggestions
-
-            sel_index = _parse_selection(selection)
-            if sel_index is not None and 0 <= sel_index < len(suggestions):
-                entry = suggestions[sel_index]
-                href = entry.get('href')
-                if href:
-                    try:
-                        page.goto(href, timeout=timeout)
-                    except Exception:
-                        pass
-                    try:
-                        page.wait_for_selector('ytd-player', timeout=timeout)
-                    except Exception:
-                        page.wait_for_load_state('networkidle')
-                    return _result_ok({'status': 'playing', 'match': entry})
-
-            if query:
-                best = None
-                best_score = -1
-                for r in suggestions:
-                    s = _score_match(r, query)
-                    if s > best_score:
-                        best_score = s
-                        best = r
-                if best and best_score >= 5:
-                    try:
-                        page.goto(best.get('href'), timeout=timeout)
-                    except Exception:
-                        pass
-                    try:
-                        page.wait_for_selector('ytd-player', timeout=timeout)
-                    except Exception:
-                        page.wait_for_load_state('networkidle')
-                    return _result_ok({'status': 'playing', 'match': best, 'score': best_score})
-
-            # If we reach here, return options for disambiguation
-            return _result_ok({'status': 'ambiguous', 'options': suggestions[:6]})
-
-        return _result_error('unhandled YouTube page type')
-
+                # Last resort: just wait for network to settle
+                try:
+                    page.wait_for_load_state('networkidle', timeout=5000)
+                except Exception:
+                    return _result_error('timeout: video page did not load')
+        
+        # Final check: are we actually on a watch page?
+        final_url = (page.url or '').lower()
+        if 'youtube.com/watch' not in final_url and 'youtube.com/shorts' not in final_url:
+            return _result_error('video did not load; still on search page')
+        
+        # Success!
+        return _result_ok({
+            'status': 'playing',
+            'title': target_video.get('title'),
+            'channel': target_video.get('channel')
+        })
+        
     except Exception as e:
-        return _result_error(e)
+        return _result_error(f'unexpected error: {e}')
+
 
 
 def tool_youtube_pause_play(
@@ -353,7 +352,7 @@ def tool_youtube_pause_play(
 _YOUTUBE_TOOL_SPECS = {
     "yt_search": ToolSpec(
         name="yt_search",
-        description="Search YouTube for videos. Opens headed browser and navigates to search results.",
+        description="Navigate to YouTube search results for a query. USAGE: When the user asks to search YouTube for a topic. This ONLY navigates to the search page; it does NOT select or open a specific video. Use this to show search results, then use yt_watch to select a video from the results. EXAMPLE: User says 'search YouTube for MrBeast' → use yt_search with query='MrBeast' to display results.",
         parameters={
             "type": "object",
             "properties": {"query": {"type": "string"}, "timeout": {"type": "integer"}},
@@ -361,19 +360,19 @@ _YOUTUBE_TOOL_SPECS = {
     ),
     "yt_watch": ToolSpec(
         name="yt_watch",
-        description="Search YouTube for a video by title and open the first result.",
+        description="Select and open a YouTube video from the currently-displayed search results or suggestions page. USAGE: Use this ONLY when a YouTube search results page or video page is already open (e.g., after yt_search). With 'query', fuzzy-match a video by title/channel (e.g., 'MrBeast' finds videos by that creator). With 'selection', use ordinal words like 'first', 'second', 'the one from X'. Returns status='playing' on success or 'ambiguous' if multiple matches exist. EXAMPLES: (1) After search results show, user says 'watch the first one' → call yt_watch with selection='first'. (2) User says 'watch the one from MrBeast' → call yt_watch with query='MrBeast'.",
         parameters={
             "type": "object",
             "properties": {
-                "title": {"type": "string"},
                 "query": {"type": "string"},
+                "selection": {"type": "string"},
                 "timeout": {"type": "integer"},
             },
         },
     ),
     "yt_pause_play": ToolSpec(
         name="yt_pause_play",
-        description="Toggle the current video (pause or play), if a video is open.",
+        description="Toggle play/pause on the currently-playing YouTube video. USAGE: Use ONLY when a video is already playing (user is on a YouTube watch page). Call this when the user says 'play', 'pause', 'resume', or 'stop'. Do NOT use this to select or open a new video. EXAMPLE: A video is playing, user says 'pause' → call yt_pause_play with no arguments.",
         parameters={"type": "object", "properties": {}},
     ),
 }
