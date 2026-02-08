@@ -5,14 +5,14 @@ a = Analysis(
     ['web.py'],
     pathex=[],
     binaries=[],
-    datas=[('records', 'records/'), ('public', 'public/'), ('web', 'web/')],
+    datas=[('.env', '.'), ('output.mp3', '.'),('records', 'records/'), ('public', 'public/'), ('web', 'web/')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=['tkinter', 'matplotlib', 'numpy', 'pandas', 'scipy', 'PIL', 'PyQt6.QtQuick3D'],
     noarchive=False,
-    optimize=0,
+    optimize=2,
 )
 pyz = PYZ(a.pure)
 
@@ -25,7 +25,7 @@ exe = EXE(
     name='Willow',
     debug=False,
     bootloader_ignore_signals=False,
-    strip=False,
+    strip=True,
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
