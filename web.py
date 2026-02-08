@@ -147,7 +147,7 @@ class Recorder:
         self.running = True
         while self.running:
             if state.muted:
-                time.sleep(0.5)
+                time.sleep(0.01)
                 continue
 
             input_data = self.stream.read(chunk)
@@ -157,7 +157,7 @@ class Recorder:
                 transcript_text = aud_to_trans()
                 if transcript_text:
                     state.transcript = transcript_text
-                    
+
                     if not muted_during_recording:
                         playsound(random.choice(waiting_audios_paths), block=False)
 
