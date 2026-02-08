@@ -7,8 +7,6 @@ import requests
 from elevenlabs.client import ElevenLabs
 import wave
 
-load_dotenv()
-
 
 def resource_path(relative_path):
     """Get absolute path to resource, works for dev and for PyInstaller"""
@@ -17,6 +15,10 @@ def resource_path(relative_path):
     except Exception:
         base_path = os.path.abspath(".")
     return os.path.join(base_path, relative_path)
+
+
+# Load .env from the correct location
+load_dotenv(resource_path(".env"))
 
 
 def aud_to_trans():

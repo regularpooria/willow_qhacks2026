@@ -4,12 +4,6 @@ from playsound3 import playsound
 import os
 import sys
 
-load_dotenv()
-
-client = ElevenLabs(
-    api_key=os.getenv("ELEVENLABS_API_KEY"),
-)
-
 
 def resource_path(relative_path):
     """Get absolute path to resource, works for dev and for PyInstaller"""
@@ -19,6 +13,14 @@ def resource_path(relative_path):
     except Exception:
         base_path = os.path.abspath(".")
     return os.path.join(base_path, relative_path)
+
+
+# Load .env from the correct location
+load_dotenv(resource_path(".env"))
+
+client = ElevenLabs(
+    api_key=os.getenv("ELEVENLABS_API_KEY"),
+)
 
 
 def trans_to_aud(transcript):
