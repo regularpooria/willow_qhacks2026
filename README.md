@@ -14,6 +14,6 @@ Our project for QHacks 2026 is Willow: A simple, user-friendly program that allo
 ## ethics & privacy
 Because our audience is made of vulnerable groups of people, privacy and security of our users' data is our highest priority. Willow is run locally on the users' device and can be disabled. No data leaves the computer and we do not collect any user information. In essence, Willow is a voice-activated virtual keyboard - not a companion or agent that would use data for model training.
 
-Willow uses the device's microphone, and our GUI provides a simple "mute" button that disables it. This button can be quickly toggled with mouse clicks, the space bar, or the "enter" key. Otherwise, Willow waits to detect speech before processing user requests, similar to virtual assistants like Siri, Cortana, or Alexa.
+Willow uses the device's microphone and our GUI provides a simple "mute" button that disables it. Upon startup, the mic is muted by default. This button can be quickly toggled with mouse clicks, the space bar, or the "enter" key. Otherwise, Willow waits to detect speech before processing user requests, similar to virtual assistants like Siri, Cortana, or Alexa.
 
 ## current limitations
